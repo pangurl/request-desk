@@ -1,6 +1,7 @@
-# Request Desk
+# Luffy Lu · Web 项目
 
-企业采购申请与审批台。应用来自 Vben Admin 派生工作区，基线为 `26706d65c9401a7818cf83369081c26b68990ef7`。
+V3 编辑排版改版，包含作品集、采购审批台、GitHub Issue 受理台。
 
-- [运行说明](apps/request-desk/README.md)
-- [在线交互演示](https://request-desk-pangurl.ddpangur.chatgpt.site)（站点所有者登录后访问）
+- 服务端版运行方式见 [Request Desk](apps/request-desk/README.md)。
+- 三个站点的前端源码见 [sites](sites/)。
+- GitHub Pages 静态发布目录为 `main /docs`。演示状态保存在浏览器。

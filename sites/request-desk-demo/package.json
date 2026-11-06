@@ -1,12 +1,10 @@
 {
-  "name": "request-desk",
+  "name": "request-desk-demo",
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "test": "node --test",
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "start": "node server.mjs"
+    "build": "vite build"
   },
   "license": "MIT",
   "type": "module",
@@ -27,5 +25,6 @@
   },
   "engines": {
     "node": ">=24"
-  }
+  },
+  "private": true
 }

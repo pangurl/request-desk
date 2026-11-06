@@ -1,0 +1,21 @@
+---
+const { title = 'Luffy Lu · 开发作品集' } = Astro.props;
+---
+<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{title}</title></head>
+<body><header><a href="/">Luffy Lu</a><a href="https://github.com/pangurl">GitHub ↗</a></header><main><slot/></main><footer>LUFFY LU · SOFTWARE PROJECTS</footer></body></html>
+<style is:global>
+:root{--paper:#f1ede4;--ink:#201e1a;--muted:#58534b;--line:#c9c1b4;--serif:"Noto Serif SC","Songti SC","SimSun",Georgia,serif;--mono:ui-monospace,monospace}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,sans-serif}
+header,main,footer{width:min(100% - 44px,980px);margin:auto}
+header{display:flex;justify-content:space-between;padding:18px 0;border-bottom:1px solid var(--line)}
+header,footer,.overline,.case-index{font:12px/1.5 var(--mono);letter-spacing:.12em;text-transform:uppercase}
+main{padding:54px 0 66px}footer{padding:16px 0;border-top:1px solid var(--line);color:var(--muted)}
+a{color:inherit;text-underline-offset:.25em}a:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+h1,h2{font-family:var(--serif);font-weight:500;line-height:1.07}
+h1{font-size:clamp(40px,8vw,91px);margin:18px 0 24px}h2{font-size:clamp(23px,4vw,36px);margin:5px 0 10px}
+p{max-width:57ch;color:var(--muted)}.hero{padding-bottom:43px}.hero p:before{content:"";display:block;width:62px;border-top:2px solid;margin:0 0 14px}
+.section-label{border-top:1px solid var(--ink);padding:13px 0}.card{border-top:1px solid var(--line);padding:19px 0}
+#projects .card{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px}.case-index{padding-top:3px}
+.links{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0}.cta{font-weight:700}
+@media(max-width:520px){main{padding-top:34px}#projects .card{grid-template-columns:30px minmax(0,1fr)}}
+</style>

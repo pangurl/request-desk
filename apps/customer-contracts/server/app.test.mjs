@@ -1,0 +1,31 @@
+import {test} from 'node:test'
+import assert from 'node:assert/strict'
+import {mkdtempSync,rmSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {join} from 'node:path'
+import {createApp} from './app.mjs'
+
+test('客户与合同业务集成验证',async t=>{
+ const directory=mkdtempSync(join(tmpdir(),'contracts-')),databasePath=join(directory,'test.sqlite'),password='TestPassword2026!'
+ let instance,server,base
+ async function start(){instance=createApp({databasePath,initialPassword:password});server=instance.app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));base='http://127.0.0.1:'+server.address().port}
+ async function stop(){await new Promise(r=>server.close(r));instance.close()}
+ await start()
+ const cookies={}
+ async function request(user,path,method='GET',body){const r=await fetch(base+'/api'+path,{method,headers:{'Content-Type':'application/json',...(cookies[user]?{cookie:cookies[user]}:{})},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,data:r.headers.get('content-type')?.includes('application/json')?await r.json():await r.text(),cookie:r.headers.get('set-cookie')}}
+ let customer,contract
+ try{
+ await t.test('匿名访问被拒绝、登录生成 HttpOnly 会话',async()=>{assert.equal((await request('none','/customers')).status,401);assert.equal((await request('none','/login','POST',{username:'admin',password:'wrong'})).status,401);for(const user of ['admin','sales','viewer','tenant2']){const r=await request(user,'/login','POST',{username:user,password});assert.equal(r.status,200);assert.match(r.cookie,/HttpOnly/);cookies[user]=r.cookie.split(';')[0]}})
+ await t.test('跨站请求与无效来源被拒绝',async()=>{for(const origin of ['https://untrusted.example','invalid-origin']){const r=await fetch(base+'/api/customers',{method:'POST',headers:{cookie:cookies.admin,origin,'Content-Type':'application/json'},body:'{}'});assert.equal(r.status,403)}})
+ await t.test('角色限制由服务端执行',async()=>{assert.equal((await request('viewer','/customers','POST',{name:'越权'})).status,403);assert.equal((await request('sales','/events')).status,403)})
+ await t.test('客户创建、分页搜索及乐观锁',async()=>{let r=await request('sales','/customers','POST',{name:'测试客户',contact:'王经理',email:'wang@example.com',industry:'软件服务',status:'active'});assert.equal(r.status,201);customer=r.data;const list=await request('sales','/customers?q='+encodeURIComponent('测试客户')+'&size=1');assert.equal(list.data.total,1);assert.equal(list.data.items.length,1);r=await request('sales','/customers/'+customer.id,'PUT',{...customer,contact:'李经理'});assert.equal(r.status,200);assert.equal((await request('sales','/customers/'+customer.id,'PUT',customer)).status,409);customer=r.data})
+ await t.test('租户列表、详情与关联写入均隔离',async()=>{const r=await request('tenant2','/customers');assert.ok(!r.data.items.some(c=>c.id===customer.id));assert.equal((await request('tenant2','/customers/'+customer.id)).status,404);assert.equal((await request('tenant2','/contracts','POST',{title:'越租户',customer_id:customer.id,amount_cents:100,start_date:'2026-01-01',end_date:'2026-12-31'})).status,404)})
+ const payload={title:'软件服务年度合同',customer_id:0,amount_cents:123456,start_date:'2026-01-01',end_date:'2026-12-31'}
+ await t.test('金额、日期及关联客户校验',async()=>{payload.customer_id=customer.id;for(const bad of [{amount_cents:0},{amount_cents:0.1},{start_date:'2026-02-30'},{end_date:'2025-01-01'}])assert.equal((await request('sales','/contracts','POST',{...payload,...bad})).status,422);const r=await request('sales','/contracts','POST',payload);assert.equal(r.status,201);contract=r.data;assert.equal(contract.status,'draft');assert.equal(contract.amount_cents,123456)})
+ async function action(user,name,note=''){const r=await request(user,'/contracts/'+contract.id+'/actions','POST',{action:name,version:contract.version,note});if(r.status===200)contract=r.data;return r}
+ await t.test('提交、退回原因、修订与重新提交完整流转',async()=>{assert.equal((await action('sales','submit')).data.status,'pending');assert.equal((await action('sales','approve')).status,403);assert.equal((await action('admin','return')).status,422);assert.equal((await action('admin','return','请确认履约日期')).data.status,'returned');let r=await request('sales','/contracts/'+contract.id,'PUT',{...payload,version:contract.version,title:'软件服务合同（修订）'});assert.equal(r.status,200);contract=r.data;assert.equal((await action('sales','submit')).data.status,'pending')})
+ await t.test('并发审核仅成功一次、待审队列消失、日志一致',async()=>{const body={version:contract.version,action:'approve'};const results=await Promise.all([request('admin','/contracts/'+contract.id+'/actions','POST',body),request('admin','/contracts/'+contract.id+'/actions','POST',body)]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);const detail=await request('admin','/contracts/'+contract.id);contract=detail.data;assert.equal(contract.status,'active');assert.equal(detail.data.events.filter(e=>e.action==='approve').length,1);const pending=await request('admin','/contracts?status=pending');assert.ok(!pending.data.items.some(c=>c.id===contract.id));assert.equal((await request('sales','/contracts/'+contract.id,'PUT',{...payload,version:contract.version})).status,409);assert.equal((await request('tenant2','/contracts/'+contract.id)).status,404);assert.equal((await request('tenant2','/contracts')).data.total,0);assert.equal((await request('tenant2','/dashboard')).data.states.length,0)})
+ await t.test('导出、统计与客户停用规则',async()=>{const csv=await request('admin','/contracts/export?status=active');assert.match(csv.data,/1234.56/);const dashboard=await request('admin','/dashboard');assert.equal(dashboard.data.states.find(s=>s.status==='active').amount,123456);await request('admin','/customers/'+customer.id,'PUT',{...customer,status:'inactive'});assert.equal((await request('sales','/contracts','POST',payload)).status,422);assert.equal((await request('admin','/contracts/'+contract.id)).status,200)})
+ await t.test('数据库重启保留状态、会话退出失效',async()=>{await stop();await start();assert.equal((await request('admin','/contracts/'+contract.id)).data.status,'active');assert.equal((await request('admin','/logout','POST',{})).status,200);assert.equal((await request('admin','/me')).status,401)})
+ }finally{await stop();rmSync(directory,{recursive:true,force:true})}
+})

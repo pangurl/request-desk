@@ -1,9 +1,10 @@
-# 采购审批台与开发作品集
+# Web 业务系统与开发作品集
 
-本仓库收录采购审批工作台、GitHub Issue 受理台和展示两项工作的个人作品集。
+本仓库收录采购审批工作台、GitHub Issue 受理台、客户与合同管理系统，以及个人开发作品集。
 
 | 目录 | 运行方式与数据来源 |
 | --- | --- |
+| [客户与合同管理系统](apps/customer-contracts/) | Vue 3 + TypeScript + Element Plus + Node.js + SQLite。支持客户建档、合同审核、角色权限、租户隔离、导出和操作追溯，含完整需求与运行说明。 |
 | [采购审批工作台](apps/request-desk/) | React + Node.js HTTP API + SQLite。支持草稿、提交、退回、重新提交和审批，使用版本检查处理并发更新。 |
 | [采购审批浏览器版](sites/request-desk-demo/) | 可单独构建的交互预览，流程和数据保存在当前浏览器。 |
 | [GitHub Issue 受理台](sites/issue-desk/) | 支持实时同步公开仓库，也提供示例数据。受理标记与备注保存在当前浏览器。 |
